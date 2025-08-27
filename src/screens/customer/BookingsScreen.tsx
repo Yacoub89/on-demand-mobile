@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useAuth } from '../../context/AuthContext';
 import { Booking } from '../../types';
@@ -49,6 +50,24 @@ const GET_USER_BOOKINGS_QUERY = gql`
   }
 `;
 
+const CANCEL_BOOKING_MUTATION = gql`
+  mutation CancelBooking($bookingId: Int!) {
+    cancelBooking(bookingId: $bookingId) {
+      id
+      status
+    }
+  }
+`;
+
+const DISPUTE_BOOKING_MUTATION = gql`
+  mutation DisputeBooking($bookingId: Int!, $reason: String!) {
+    disputeBooking(bookingId: $bookingId, reason: $reason) {
+      id
+      status
+    }
+  }
+`;
+
 const BookingsScreen: React.FC = () => {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
@@ -59,6 +78,9 @@ const BookingsScreen: React.FC = () => {
     errorPolicy: 'all',
   });
 
+  const [cancelBooking] = useMutation(CANCEL_BOOKING_MUTATION);
+  const [disputeBooking] = useMutation(DISPUTE_BOOKING_MUTATION);
+
   const bookings: Booking[] = (data as any)?.userBookings || [];
 
   const onRefresh = async () => {
@@ -67,6 +89,71 @@ const BookingsScreen: React.FC = () => {
       await refetch();
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleCancelBooking = (booking: Booking) => {
+    Alert.alert(
+      'Cancel Booking',
+      `Are you sure you want to cancel your ${booking.providerService?.serviceType.name} booking?`,
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelBooking({
+                variables: { bookingId: booking.id },
+                refetchQueries: [{ query: GET_USER_BOOKINGS_QUERY, variables: { userId: parseInt(user?.id || '0') } }],
+              });
+              Alert.alert('Success', 'Booking cancelled successfully');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to cancel booking. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDisputeBooking = (booking: Booking) => {
+    Alert.alert(
+      'Dispute Booking',
+      'Please select a reason for disputing this booking:',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Service Not Provided',
+          onPress: () => submitDispute(booking.id, 'Service was not provided as agreed'),
+        },
+        {
+          text: 'Poor Quality',
+          onPress: () => submitDispute(booking.id, 'Service quality was unsatisfactory'),
+        },
+        {
+          text: 'Other Issue',
+          onPress: () => submitDispute(booking.id, 'Other dispute reason'),
+        },
+      ]
+    );
+  };
+
+  const submitDispute = async (bookingId: number, reason: string) => {
+    try {
+      await disputeBooking({
+        variables: { bookingId, reason },
+        refetchQueries: [{ query: GET_USER_BOOKINGS_QUERY, variables: { userId: parseInt(user?.id || '0') } }],
+      });
+      Alert.alert('Success', 'Dispute submitted successfully. We will review your case.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to submit dispute. Please try again.');
     }
   };
 
@@ -200,6 +287,29 @@ const BookingsScreen: React.FC = () => {
           )}
         </View>
       )}
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.cancelButton]}
+            onPress={() => handleCancelBooking(booking)}
+          >
+            <Ionicons name="close-circle" size={16} color="#ffffff" />
+            <Text style={styles.actionButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        )}
+        
+        {(booking.status === 'COMPLETED' || booking.status === 'CANCELLED') && (
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.disputeButton]}
+            onPress={() => handleDisputeBooking(booking)}
+          >
+            <Ionicons name="flag" size={16} color="#ffffff" />
+            <Text style={styles.actionButtonText}>Dispute</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -451,6 +561,34 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     marginTop: 8,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  cancelButton: {
+    backgroundColor: '#ef4444',
+  },
+  disputeButton: {
+    backgroundColor: '#f59e0b',
+  },
+  actionButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

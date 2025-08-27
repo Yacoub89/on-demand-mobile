@@ -55,6 +55,15 @@ const UPDATE_BOOKING_STATUS_MUTATION = gql`
   }
 `;
 
+const DISPUTE_BOOKING_MUTATION = gql`
+  mutation DisputeBooking($bookingId: Int!, $reason: String!) {
+    disputeBooking(bookingId: $bookingId, reason: $reason) {
+      id
+      status
+    }
+  }
+`;
+
 const ProviderBookingsScreen: React.FC = () => {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
@@ -74,6 +83,10 @@ const ProviderBookingsScreen: React.FC = () => {
       refetchQueries: [{ query: GET_PROVIDER_BOOKINGS_QUERY, variables: { providerId } }],
     }
   );
+
+  const [disputeBooking] = useMutation(DISPUTE_BOOKING_MUTATION, {
+    refetchQueries: [{ query: GET_PROVIDER_BOOKINGS_QUERY, variables: { providerId } }],
+  });
 
   const bookings: Booking[] = (data as any)?.providerBookings || [];
 
@@ -98,6 +111,42 @@ const ProviderBookingsScreen: React.FC = () => {
       Alert.alert('Success', `Booking ${status.toLowerCase()} successfully`);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update booking status');
+    }
+  };
+
+  const handleDisputeBooking = (booking: Booking) => {
+    Alert.alert(
+      'Dispute Booking',
+      'Please select a reason for disputing this booking:',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Customer No-Show',
+          onPress: () => submitDispute(booking.id, 'Customer did not show up for the appointment'),
+        },
+        {
+          text: 'Service Not Possible',
+          onPress: () => submitDispute(booking.id, 'Service cannot be provided as requested'),
+        },
+        {
+          text: 'Other Issue',
+          onPress: () => submitDispute(booking.id, 'Other dispute reason'),
+        },
+      ]
+    );
+  };
+
+  const submitDispute = async (bookingId: number, reason: string) => {
+    try {
+      await disputeBooking({
+        variables: { bookingId, reason },
+      });
+      Alert.alert('Success', 'Dispute submitted successfully. We will review your case.');
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to submit dispute. Please try again.');
     }
   };
 
@@ -255,6 +304,17 @@ const ProviderBookingsScreen: React.FC = () => {
             ))}
           </View>
         )}
+
+        {/* Dispute Button - Available for all statuses */}
+        <View style={styles.disputeSection}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.disputeButton]}
+            onPress={() => handleDisputeBooking(booking)}
+          >
+            <Ionicons name="flag" size={16} color="#ffffff" />
+            <Text style={styles.actionButtonText}>Dispute</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -487,6 +547,16 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     marginLeft: 4,
+  },
+  disputeSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  disputeButton: {
+    backgroundColor: '#f59e0b',
+    marginHorizontal: 0,
   },
   loadingContainer: {
     flex: 1,

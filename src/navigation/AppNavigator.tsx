@@ -14,8 +14,6 @@ import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
 
 // Customer screens
 import HomeScreen from '../screens/customer/HomeScreen';
-import ServicesScreen from '../screens/customer/ServicesScreen';
-import BookingScreen from '../screens/customer/BookingScreen';
 import BookingsScreen from '../screens/customer/BookingsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
@@ -34,8 +32,6 @@ const CustomerTabs = () => (
 
         if (route.name === 'Home') {
           iconName = focused ? 'home' : 'home-outline';
-        } else if (route.name === 'Services') {
-          iconName = focused ? 'list' : 'list-outline';
         } else if (route.name === 'Bookings') {
           iconName = focused ? 'calendar' : 'calendar-outline';
         } else if (route.name === 'Profile') {
@@ -52,7 +48,6 @@ const CustomerTabs = () => (
     })}
   >
     <Tab.Screen name="Home" component={HomeScreen} />
-    <Tab.Screen name="Services" component={ServicesScreen} />
     <Tab.Screen name="Bookings" component={BookingsScreen} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
@@ -64,8 +59,8 @@ const ProviderTabs = () => (
       tabBarIcon: ({ focused, color, size }) => {
         let iconName: keyof typeof Ionicons.glyphMap;
 
-        if (route.name === 'Dashboard') {
-          iconName = focused ? 'grid' : 'grid-outline';
+        if (route.name === 'Home') {
+          iconName = focused ? 'home' : 'home-outline';
         } else if (route.name === 'Bookings') {
           iconName = focused ? 'calendar' : 'calendar-outline';
         } else if (route.name === 'Profile') {
@@ -81,7 +76,7 @@ const ProviderTabs = () => (
       headerShown: false,
     })}
   >
-    <Tab.Screen name="Dashboard" component={ProviderDashboardScreen} />
+    <Tab.Screen name="Home" component={ProviderDashboardScreen} />
     <Tab.Screen name="Bookings" component={ProviderBookingsScreen} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
@@ -105,7 +100,6 @@ const MainStack = () => {
       ) : (
         <Stack.Screen name="CustomerTabs" component={CustomerTabs} />
       )}
-      <Stack.Screen name="Booking" component={BookingScreen} />
     </Stack.Navigator>
   );
 };

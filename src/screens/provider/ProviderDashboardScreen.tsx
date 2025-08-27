@@ -48,17 +48,9 @@ const ProviderDashboardScreen: React.FC = () => {
   // Calculate stats
   const totalBookings = bookings.length;
   const pendingBookings = bookings.filter((b: any) => b.status === 'PENDING').length;
+  const confirmedBookings = bookings.filter((b: any) => b.status === 'CONFIRMED').length;
+  const inProgressBookings = bookings.filter((b: any) => b.status === 'IN_PROGRESS').length;
   const completedBookings = bookings.filter((b: any) => b.status === 'COMPLETED').length;
-  const totalEarnings = bookings
-    .filter((b: any) => b.status === 'COMPLETED')
-    .reduce((sum: number, b: any) => sum + b.totalPrice, 0);
-
-  const reviews = bookings
-    .filter((b: any) => b.review)
-    .map((b: any) => b.review);
-  const averageRating = reviews.length > 0 
-    ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
-    : 0;
 
   const quickActions = [
     {
@@ -67,26 +59,6 @@ const ProviderDashboardScreen: React.FC = () => {
       icon: 'calendar',
       color: '#3b82f6',
       onPress: () => navigation.navigate('Bookings'),
-    },
-    {
-      title: 'Manage Services',
-      subtitle: 'Add or edit services',
-      icon: 'briefcase',
-      color: '#10b981',
-      onPress: () => {
-        // This would navigate to a services management screen
-        alert('Services management coming soon!');
-      },
-    },
-    {
-      title: 'Availability',
-      subtitle: 'Set your schedule',
-      icon: 'time',
-      color: '#f59e0b',
-      onPress: () => {
-        // This would navigate to availability management
-        alert('Availability management coming soon!');
-      },
     },
     {
       title: 'Profile',
@@ -105,22 +77,22 @@ const ProviderDashboardScreen: React.FC = () => {
       color: '#3b82f6',
     },
     {
+      title: 'Pending',
+      value: pendingBookings.toString(),
+      icon: 'time',
+      color: '#f59e0b',
+    },
+    {
+      title: 'In Progress',
+      value: inProgressBookings.toString(),
+      icon: 'play-circle',
+      color: '#8b5cf6',
+    },
+    {
       title: 'Completed',
       value: completedBookings.toString(),
       icon: 'checkmark-circle',
       color: '#10b981',
-    },
-    {
-      title: 'Average Rating',
-      value: averageRating > 0 ? averageRating.toFixed(1) : 'N/A',
-      icon: 'star',
-      color: '#f59e0b',
-    },
-    {
-      title: 'Total Earnings',
-      value: `$${totalEarnings.toFixed(2)}`,
-      icon: 'cash',
-      color: '#ef4444',
     },
   ];
 
@@ -131,7 +103,7 @@ const ProviderDashboardScreen: React.FC = () => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hello, {user?.name}!</Text>
-            <Text style={styles.subtitle}>Manage your services and bookings</Text>
+            <Text style={styles.subtitle}>Manage your service bookings</Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={24} color="#6b7280" />
@@ -177,52 +149,38 @@ const ProviderDashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Recent Activity */}
+        {/* Info Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityCard}>
-            {pendingBookings > 0 ? (
-              <View style={styles.activityItem}>
-                <Ionicons name="time" size={20} color="#f59e0b" />
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityTitle}>
-                    {pendingBookings} booking{pendingBookings !== 1 ? 's' : ''} pending
-                  </Text>
-                  <Text style={styles.activitySubtitle}>
-                    Respond to new booking requests
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.activityButton}
-                  onPress={() => navigation.navigate('Bookings')}
-                >
-                  <Text style={styles.activityButtonText}>View</Text>
-                </TouchableOpacity>
+          <Text style={styles.sectionTitle}>How it works</Text>
+          <View style={styles.infoCard}>
+            <View style={styles.infoStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepText}>1</Text>
               </View>
-            ) : (
-              <View style={styles.activityItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityTitle}>All caught up!</Text>
-                  <Text style={styles.activitySubtitle}>
-                    No pending bookings at the moment
-                  </Text>
-                </View>
+              <View style={styles.stepContent}>
+                <Text style={styles.stepTitle}>Review Bookings</Text>
+                <Text style={styles.stepDescription}>Check incoming booking requests and details</Text>
               </View>
-            )}
-          </View>
-        </View>
+            </View>
 
-        {/* Tips */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tips for Success</Text>
-          <View style={styles.tipCard}>
-            <Ionicons name="bulb" size={20} color="#f59e0b" />
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Respond quickly to bookings</Text>
-              <Text style={styles.tipText}>
-                Fast response times lead to higher customer satisfaction and more bookings.
-              </Text>
+            <View style={styles.infoStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepText}>2</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <Text style={styles.stepTitle}>Approve & Start</Text>
+                <Text style={styles.stepDescription}>Approve bookings and mark them as in progress</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepText}>3</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <Text style={styles.stepTitle}>Complete & Manage</Text>
+                <Text style={styles.stepDescription}>Mark bookings as complete or handle disputes</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -348,10 +306,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
   },
-  activityCard: {
+  infoCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 16,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -361,54 +319,37 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  activityItem: {
+  infoStep: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  activityContent: {
+  stepNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  stepText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  stepContent: {
     flex: 1,
-    marginLeft: 12,
   },
-  activityTitle: {
+  stepTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 2,
-  },
-  activitySubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  activityButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  activityButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fef3c7',
-    padding: 16,
-    borderRadius: 12,
-  },
-  tipContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  tipTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#92400e',
     marginBottom: 4,
   },
-  tipText: {
+  stepDescription: {
     fontSize: 14,
-    color: '#92400e',
+    color: '#6b7280',
     lineHeight: 20,
   },
 });

@@ -38,7 +38,6 @@ const GET_SERVICES_QUERY = gql`
       serviceType {
         id
         name
-        description
         category {
           id
           name
@@ -53,15 +52,21 @@ const ServicesScreen: React.FC = () => {
   const route = useRoute<any>();
   const [searchText, setSearchText] = useState('');
 
+
+
   const categoryId = route.params?.categoryId;
   const categoryName = route.params?.categoryName;
 
+  // Get services
   const { data, loading, error } = useQuery(GET_SERVICES_QUERY, {
-    variables: { categoryId },
+    variables: categoryId ? { categoryId } : { categoryId: null },
     errorPolicy: 'all',
+    fetchPolicy: 'cache-and-network',
   });
 
   const services = (data as any)?.services || [];
+
+
 
   // Filter services by category (client-side safeguard), active status, and search text
   const filteredServices = services.filter((service: ProviderService) => {
@@ -70,6 +75,7 @@ const ServicesScreen: React.FC = () => {
     
     // If categoryId is provided, ensure service belongs to that category
     const matchesCategory = !categoryId || service.serviceType.category.id === categoryId;
+    if (!matchesCategory) return false;
     
     // Search filter
     const matchesSearch = !searchText || 
@@ -78,7 +84,7 @@ const ServicesScreen: React.FC = () => {
       service.serviceType.category.name.toLowerCase().includes(searchText.toLowerCase()) ||
       (service.description && service.description.toLowerCase().includes(searchText.toLowerCase()));
     
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
   const handleServicePress = (service: ProviderService) => {
@@ -153,7 +159,7 @@ const ServicesScreen: React.FC = () => {
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color="#ef4444" />
           <Text style={styles.errorText}>Failed to load services</Text>
-          <Text style={styles.errorSubtext}>Please check your connection and try again</Text>
+          <Text style={styles.errorSubtext}>{error.message || 'Please check your connection and try again'}</Text>
         </View>
       </SafeAreaView>
     );
@@ -170,7 +176,7 @@ const ServicesScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color="#1f2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {categoryName ? `${categoryName} Services` : 'All Services'}
+          {categoryName ? `${categoryName} Services` : 'Services'}
         </Text>
         <View style={styles.placeholder} />
       </View>
@@ -188,6 +194,8 @@ const ServicesScreen: React.FC = () => {
         </View>
       </View>
 
+
+
       {/* Services List */}
       <FlatList
         data={filteredServices}
@@ -202,6 +210,7 @@ const ServicesScreen: React.FC = () => {
             <Text style={styles.emptySubtext}>
               Try adjusting your search or browse different categories
             </Text>
+
           </View>
         }
       />
