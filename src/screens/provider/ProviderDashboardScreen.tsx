@@ -272,15 +272,15 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   statCard: {
-    width: (width - 60) / 2,
+    width: Math.max((width - 52) / 2, 140), // Minimum width of 140px for very small screens
     backgroundColor: '#ffffff',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

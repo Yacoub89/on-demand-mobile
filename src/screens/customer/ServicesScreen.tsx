@@ -24,6 +24,7 @@ const GET_SERVICES_QUERY = gql`
       duration
       description
       images
+      isActive
       provider {
         id
         user {
@@ -37,6 +38,7 @@ const GET_SERVICES_QUERY = gql`
       serviceType {
         id
         name
+        description
         category {
           id
           name
@@ -61,11 +63,23 @@ const ServicesScreen: React.FC = () => {
 
   const services = (data as any)?.services || [];
 
-  const filteredServices = services.filter((service: ProviderService) =>
-    service.serviceType.name.toLowerCase().includes(searchText.toLowerCase()) ||
-    service.provider.user.name.toLowerCase().includes(searchText.toLowerCase()) ||
-    (service.description && service.description.toLowerCase().includes(searchText.toLowerCase()))
-  );
+  // Filter services by category (client-side safeguard), active status, and search text
+  const filteredServices = services.filter((service: ProviderService) => {
+    // Only show active services
+    if (!service.isActive) return false;
+    
+    // If categoryId is provided, ensure service belongs to that category
+    const matchesCategory = !categoryId || service.serviceType.category.id === categoryId;
+    
+    // Search filter
+    const matchesSearch = !searchText || 
+      service.serviceType.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      service.provider.user.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      service.serviceType.category.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      (service.description && service.description.toLowerCase().includes(searchText.toLowerCase()));
+    
+    return matchesCategory && matchesSearch;
+  });
 
   const handleServicePress = (service: ProviderService) => {
     navigation.navigate('Booking', { service });

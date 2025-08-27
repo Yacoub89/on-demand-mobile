@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,28 +7,153 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useQuery } from '@apollo/client/react';
+import { gql } from '@apollo/client';
 import { useAuth } from '../../context/AuthContext';
+import { Category } from '../../types';
 
 const { width } = Dimensions.get('window');
+
+const GET_CATEGORIES_QUERY = gql`
+  query GetCategories {
+    categories {
+      id
+      name
+      icon
+      isActive
+      sortOrder
+    }
+  }
+`;
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
 
-  const categories = [
-    { id: 1, name: 'Cleaning', icon: 'home', color: '#3b82f6' },
-    { id: 2, name: 'Handyman', icon: 'hammer', color: '#f59e0b' },
-    { id: 3, name: 'Beauty', icon: 'cut', color: '#ec4899' },
-    { id: 4, name: 'Tutoring', icon: 'book', color: '#10b981' },
-    { id: 5, name: 'Fitness', icon: 'fitness', color: '#ef4444' },
-    { id: 6, name: 'Pet Care', icon: 'paw', color: '#8b5cf6' },
-  ];
+  const { data, loading, error } = useQuery(GET_CATEGORIES_QUERY, {
+    errorPolicy: 'all',
+  });
 
-  const handleCategoryPress = (category: any) => {
+  const categories = (data as any)?.categories || [];
+
+  // Icon mapping for categories (maps emojis and names to valid Ionicons)
+  const iconMapping: { [key: string]: { icon: string; color: string } } = {
+    // Emoji mappings
+    '🏠': { icon: 'home-outline', color: '#3b82f6' },
+    '🔨': { icon: 'hammer-outline', color: '#f59e0b' },
+    '💅': { icon: 'cut-outline', color: '#ec4899' },
+    '💇': { icon: 'cut-outline', color: '#ec4899' },
+    '💄': { icon: 'sparkles-outline', color: '#ec4899' },
+    '🦶': { icon: 'footsteps-outline', color: '#8b5cf6' },
+    '🧖': { icon: 'person-outline', color: '#ec4899' },
+    '🪒': { icon: 'cut-outline', color: '#ec4899' },
+    '🎨': { icon: 'color-palette-outline', color: '#ec4899' },
+    '✨': { icon: 'sparkles-outline', color: '#ec4899' },
+    '🌸': { icon: 'flower-outline', color: '#ec4899' },
+    '🧘': { icon: 'fitness-outline', color: '#ef4444' },
+    '💪': { icon: 'fitness-outline', color: '#ef4444' },
+    '📚': { icon: 'book-outline', color: '#10b981' },
+    '🐕': { icon: 'paw-outline', color: '#8b5cf6' },
+    '🐾': { icon: 'paw-outline', color: '#8b5cf6' },
+    '🚗': { icon: 'car-outline', color: '#f59e0b' },
+    '💻': { icon: 'laptop-outline', color: '#6366f1' },
+    
+    // Name mappings
+    'Cleaning': { icon: 'home-outline', color: '#3b82f6' },
+    'Handyman': { icon: 'hammer-outline', color: '#f59e0b' },
+    'Beauty': { icon: 'cut-outline', color: '#ec4899' },
+    'Beauty & Personal Care': { icon: 'cut-outline', color: '#ec4899' },
+    'Personal Care': { icon: 'sparkles-outline', color: '#ec4899' },
+    'Tutoring': { icon: 'book-outline', color: '#10b981' },
+    'Education': { icon: 'book-outline', color: '#10b981' },
+    'Fitness': { icon: 'fitness-outline', color: '#ef4444' },
+    'Health & Wellness': { icon: 'fitness-outline', color: '#ef4444' },
+    'Pet Care': { icon: 'paw-outline', color: '#8b5cf6' },
+    'Home Services': { icon: 'home-outline', color: '#3b82f6' },
+    'Technology': { icon: 'laptop-outline', color: '#6366f1' },
+    'Automotive': { icon: 'car-outline', color: '#f59e0b' },
+    'Transportation': { icon: 'car-outline', color: '#f59e0b' },
+  };
+
+  const getCategoryIcon = (category: Category) => {
+    // Try to match by icon (emoji) first, then by name
+    const mapping = iconMapping[category.icon || ''] || iconMapping[category.name] || { icon: 'grid-outline', color: '#6b7280' };
+    return {
+      icon: mapping.icon,
+      color: mapping.color,
+    };
+  };
+
+  const handleCategoryPress = (category: Category) => {
     navigation.navigate('Services', { categoryId: category.id, categoryName: category.name });
+  };
+
+  const renderCategories = () => {
+    if (loading) {
+      return (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Top Categories</Text>
+          </View>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2563eb" />
+            <Text style={styles.loadingText}>Loading categories...</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (error || !categories || categories.length === 0) {
+      return (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Top Categories</Text>
+          </View>
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={32} color="#ef4444" />
+            <Text style={styles.errorText}>Unable to load categories</Text>
+          </View>
+        </View>
+      );
+    }
+
+    // Filter active categories and get top 4, sorted by sortOrder
+    const activeCategories = categories
+      .filter((category: Category) => category.isActive)
+      .sort((a: Category, b: Category) => a.sortOrder - b.sortOrder)
+      .slice(0, 4); // Show only top 4 categories
+
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Top Categories</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Services')}>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.categoriesGrid}>
+          {activeCategories.map((category: Category) => {
+            const { icon, color } = getCategoryIcon(category);
+            return (
+              <TouchableOpacity
+                key={category.id}
+                style={styles.categoryCard}
+                onPress={() => handleCategoryPress(category)}
+              >
+                <View style={[styles.categoryIcon, { backgroundColor: color }]}>
+                  <Ionicons name={icon as any} size={24} color="#ffffff" />
+                </View>
+                <Text style={styles.categoryName}>{category.name || 'Category'}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -37,7 +162,7 @@ const HomeScreen: React.FC = () => {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Hello, {user?.name}!</Text>
+            <Text style={styles.greeting}>Hello, {user?.name || 'User'}!</Text>
             <Text style={styles.subtitle}>What service do you need today?</Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>
@@ -52,27 +177,13 @@ const HomeScreen: React.FC = () => {
         </TouchableOpacity>
 
         {/* Categories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Popular Categories</Text>
-          <View style={styles.categoriesGrid}>
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={styles.categoryCard}
-                onPress={() => handleCategoryPress(category)}
-              >
-                <View style={[styles.categoryIcon, { backgroundColor: category.color }]}>
-                  <Ionicons name={category.icon as any} size={24} color="#ffffff" />
-                </View>
-                <Text style={styles.categoryName}>{category.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {renderCategories()}
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+          </View>
           <View style={styles.quickActions}>
             <TouchableOpacity
               style={styles.actionCard}
@@ -96,7 +207,9 @@ const HomeScreen: React.FC = () => {
 
         {/* Recent Activity */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+          </View>
           <View style={styles.activityCard}>
             <Ionicons name="time" size={20} color="#6b7280" />
             <Text style={styles.activityText}>
@@ -163,24 +276,34 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingHorizontal: 20,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 16,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2563eb',
   },
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   categoryCard: {
-    width: (width - 60) / 3,
+    width: Math.max((width - 64) / 3, 90), // Minimum width of 90px for very small screens
     backgroundColor: '#ffffff',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -206,14 +329,13 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   actionCard: {
     flex: 1,
     backgroundColor: '#ffffff',
     padding: 20,
     borderRadius: 12,
-    marginRight: 8,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -253,6 +375,25 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     color: '#6b7280',
     flex: 1,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    marginTop: 8,
+    fontSize: 16,
+    color: '#ef4444',
+    textAlign: 'center',
   },
 });
 

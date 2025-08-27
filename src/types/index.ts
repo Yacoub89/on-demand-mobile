@@ -17,6 +17,7 @@ export interface Category {
   icon?: string;
   isActive: boolean;
   sortOrder: number;
+  bookingCount?: number;
 }
 
 export interface ServiceType {

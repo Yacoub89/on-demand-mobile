@@ -397,14 +397,16 @@ const styles = StyleSheet.create({
   timeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   timeCard: {
     backgroundColor: '#ffffff',
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
-    width: '30%',
+    flex: 1,
+    minWidth: '30%',
+    maxWidth: '32%',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e5e7eb',
