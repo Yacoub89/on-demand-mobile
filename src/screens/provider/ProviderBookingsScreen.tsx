@@ -3,18 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
   Alert,
+  RefreshControl,
+  ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useAuth } from '../../context/AuthContext';
-import { Booking } from '../../types';
+import { Ionicons } from '@expo/vector-icons';
+
 
 const GET_PROVIDER_BOOKINGS_QUERY = gql`
   query ProviderBookings($providerId: Int!) {
@@ -26,7 +26,25 @@ const GET_PROVIDER_BOOKINGS_QUERY = gql`
       status
       totalPrice
       notes
+      paymentStatus
+      completedAt
+      paymentReleaseAt
+      paymentReleasedAt
+      providerPayout
+      platformFee
       serviceAddress
+      completionNotes
+      completionPhotos
+      customerNotifiedAt
+      cancellationRequestedAt
+      cancellationRequestedBy
+      cancellationReason
+      review {
+        id
+        rating
+        comment
+        createdAt
+      }
       user {
         id
         name
@@ -35,9 +53,14 @@ const GET_PROVIDER_BOOKINGS_QUERY = gql`
       }
       providerService {
         id
+        price
+        duration
+        description
         serviceType {
+          id
           name
           category {
+            id
             name
           }
         }
@@ -46,8 +69,30 @@ const GET_PROVIDER_BOOKINGS_QUERY = gql`
   }
 `;
 
+const GET_PROVIDER_BY_USER_QUERY = gql`
+  query GetProviderByUser($userId: Int!) {
+    providers(where: { userId: { _eq: $userId } }) {
+      id
+      userId
+      user {
+        id
+        name
+        email
+        role
+      }
+      description
+      experience
+      rating
+      totalReviews
+      isVerified
+      isActive
+    }
+  }
+`;
+
+
 const UPDATE_BOOKING_STATUS_MUTATION = gql`
-  mutation UpdateBookingStatus($bookingId: Int!, $status: BookingStatus!) {
+  mutation UpdateBookingStatus($bookingId: Int!, $status: String!) {
     updateBookingStatus(bookingId: $bookingId, status: $status) {
       id
       status
@@ -64,393 +109,309 @@ const DISPUTE_BOOKING_MUTATION = gql`
   }
 `;
 
-const ProviderBookingsScreen: React.FC = () => {
+const ProviderBookingsScreen = () => {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<string>('ALL');
 
-  // For now, we'll use a mock providerId. In a real app, you'd get this from the provider profile
-  const providerId = 1; // This should come from the provider's profile
-
-  const { data, loading, error, refetch } = useQuery(GET_PROVIDER_BOOKINGS_QUERY, {
-    variables: { providerId },
+  // First, find the provider profile ID for this user
+  const userId = user?.id ? parseInt(String(user.id)) : null;
+  
+  const { data: providerData, loading: providerLoading } = useQuery(GET_PROVIDER_BY_USER_QUERY, {
+    variables: { userId },
+    skip: !userId,
     errorPolicy: 'all',
   });
 
-  const [updateBookingStatus, { loading: updating }] = useMutation(
-    UPDATE_BOOKING_STATUS_MUTATION,
-    {
-      refetchQueries: [{ query: GET_PROVIDER_BOOKINGS_QUERY, variables: { providerId } }],
-    }
-  );
+  // Get the actual provider ID from the profile
+  const actualProviderId = (providerData as any)?.providers?.[0]?.id || userId;
 
-  const [disputeBooking] = useMutation(DISPUTE_BOOKING_MUTATION, {
-    refetchQueries: [{ query: GET_PROVIDER_BOOKINGS_QUERY, variables: { providerId } }],
+  // Show loading state while determining provider ID
+  if (providerLoading && !actualProviderId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loadingText}>Finding provider profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error if we can't determine provider ID
+  if (!actualProviderId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="#ef4444" />
+          <Text style={styles.errorText}>Provider Profile Not Found</Text>
+          <Text style={styles.errorSubtext}>
+            Unable to find provider profile for user ID: {userId}
+          </Text>
+          <Text style={styles.errorSubtext}>
+            Please check your account setup or contact support.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const { data, loading, error, refetch } = useQuery(GET_PROVIDER_BOOKINGS_QUERY, {
+    variables: { providerId: actualProviderId },
+    skip: !actualProviderId,
+    errorPolicy: 'all',
+    notifyOnNetworkStatusChange: true,
+    fetchPolicy: 'network-only',
   });
 
-  const bookings: Booking[] = (data as any)?.providerBookings || [];
 
-  const filteredBookings = filter === 'ALL' 
-    ? bookings 
-    : bookings.filter(booking => booking.status === filter);
+
+  const [updateBookingStatus] = useMutation(UPDATE_BOOKING_STATUS_MUTATION, {
+    refetchQueries: [
+      {
+        query: GET_PROVIDER_BOOKINGS_QUERY,
+        variables: { providerId: actualProviderId },
+      },
+    ],
+  });
+
+  const [disputeBooking] = useMutation(DISPUTE_BOOKING_MUTATION, {
+    refetchQueries: [
+      {
+        query: GET_PROVIDER_BOOKINGS_QUERY,
+        variables: { providerId: actualProviderId },
+      },
+    ],
+  });
+
+  const bookings = (data as any)?.providerBookings || [];
 
   const onRefresh = async () => {
     setRefreshing(true);
-    try {
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
+    await refetch();
+    setRefreshing(false);
   };
 
-  const handleStatusUpdate = async (bookingId: number, status: string) => {
+  const handleStatusUpdate = async (bookingId: number, newStatus: string) => {
     try {
       await updateBookingStatus({
-        variables: { bookingId, status },
+        variables: {
+          bookingId,
+          status: newStatus,
+        },
       });
-      Alert.alert('Success', `Booking ${status.toLowerCase()} successfully`);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update booking status');
+      Alert.alert('Success', 'Booking status updated successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update booking status');
     }
   };
 
-  const handleDisputeBooking = (booking: Booking) => {
-    Alert.alert(
+  const handleDispute = async (bookingId: number) => {
+    Alert.prompt(
       'Dispute Booking',
-      'Please select a reason for disputing this booking:',
+      'Please provide a reason for disputing this booking:',
       [
         {
           text: 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'Customer No-Show',
-          onPress: () => submitDispute(booking.id, 'Customer did not show up for the appointment'),
+          text: 'Submit',
+          onPress: async (reason) => {
+            if (reason) {
+              try {
+                await disputeBooking({
+                  variables: {
+                    bookingId,
+                    reason,
+                  },
+                });
+                Alert.alert('Success', 'Dispute submitted successfully');
+              } catch (error) {
+                Alert.alert('Error', 'Failed to submit dispute');
+              }
+            }
+          },
         },
-        {
-          text: 'Service Not Possible',
-          onPress: () => submitDispute(booking.id, 'Service cannot be provided as requested'),
-        },
-        {
-          text: 'Other Issue',
-          onPress: () => submitDispute(booking.id, 'Other dispute reason'),
-        },
-      ]
+      ],
+      'plain-text'
     );
-  };
-
-  const submitDispute = async (bookingId: number, reason: string) => {
-    try {
-      await disputeBooking({
-        variables: { bookingId, reason },
-      });
-      Alert.alert('Success', 'Dispute submitted successfully. We will review your case.');
-    } catch (error: any) {
-      Alert.alert('Error', 'Failed to submit dispute. Please try again.');
-    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return '#f59e0b';
+        return '#FFA500';
       case 'CONFIRMED':
-        return '#3b82f6';
+        return '#007AFF';
       case 'IN_PROGRESS':
-        return '#8b5cf6';
+        return '#FF6B35';
       case 'COMPLETED':
-        return '#10b981';
+        return '#34C759';
       case 'CANCELLED':
-        return '#ef4444';
+        return '#FF3B30';
+      case 'DISPUTED':
+        return '#FF9500';
       default:
-        return '#6b7280';
+        return '#8E8E93';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return 'time';
-      case 'CONFIRMED':
-        return 'checkmark-circle';
-      case 'IN_PROGRESS':
-        return 'play-circle';
-      case 'COMPLETED':
-        return 'checkmark-done-circle';
-      case 'CANCELLED':
-        return 'close-circle';
-      default:
-        return 'help-circle';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (timeString: string) => {
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
-  const getAvailableActions = (booking: Booking) => {
-    switch (booking.status) {
-      case 'PENDING':
-        return [
-          { label: 'Accept', status: 'CONFIRMED', color: '#10b981', icon: 'checkmark' },
-          { label: 'Decline', status: 'CANCELLED', color: '#ef4444', icon: 'close' },
-        ];
-      case 'CONFIRMED':
-        return [
-          { label: 'Start', status: 'IN_PROGRESS', color: '#8b5cf6', icon: 'play' },
-          { label: 'Cancel', status: 'CANCELLED', color: '#ef4444', icon: 'close' },
-        ];
-      case 'IN_PROGRESS':
-        return [
-          { label: 'Complete', status: 'COMPLETED', color: '#10b981', icon: 'checkmark-done' },
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const renderBooking = ({ item: booking }: { item: Booking }) => {
-    const actions = getAvailableActions(booking);
-
-    return (
-      <View style={styles.bookingCard}>
-        <View style={styles.bookingHeader}>
-          <View style={styles.serviceInfo}>
-            <Text style={styles.serviceName}>
-              {booking.providerService?.serviceType.name}
-            </Text>
-            <Text style={styles.customerName}>
-              Customer: {booking.user?.name}
-            </Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
-            <Ionicons
-              name={getStatusIcon(booking.status) as any}
-              size={12}
-              color="#ffffff"
-            />
-            <Text style={styles.statusText}>{booking.status}</Text>
-          </View>
-        </View>
-
-        <View style={styles.bookingDetails}>
-          <View style={styles.detailRow}>
-            <Ionicons name="calendar" size={16} color="#6b7280" />
-            <Text style={styles.detailText}>{formatDate(booking.date)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="time" size={16} color="#6b7280" />
-            <Text style={styles.detailText}>
-              {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="location" size={16} color="#6b7280" />
-            <Text style={styles.detailText} numberOfLines={1}>
-              {booking.serviceAddress || 'Address not provided'}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="pricetag" size={16} color="#6b7280" />
-            <Text style={styles.detailText}>${booking.totalPrice}</Text>
-          </View>
-          {booking.user?.phone && (
-            <View style={styles.detailRow}>
-              <Ionicons name="call" size={16} color="#6b7280" />
-              <Text style={styles.detailText}>{booking.user.phone}</Text>
-            </View>
-          )}
-        </View>
-
-        {booking.notes && (
-          <View style={styles.notesSection}>
-            <Text style={styles.notesLabel}>Customer Notes:</Text>
-            <Text style={styles.notesText}>{booking.notes}</Text>
-          </View>
-        )}
-
-        {actions.length > 0 && (
-          <View style={styles.actionsSection}>
-            {actions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.actionButton, { backgroundColor: action.color }]}
-                onPress={() => handleStatusUpdate(booking.id, action.status)}
-                disabled={updating}
-              >
-                {updating ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Ionicons name={action.icon as any} size={16} color="#ffffff" />
-                    <Text style={styles.actionButtonText}>{action.label}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Dispute Button - Available for all statuses */}
-        <View style={styles.disputeSection}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.disputeButton]}
-            onPress={() => handleDisputeBooking(booking)}
-          >
-            <Ionicons name="flag" size={16} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Dispute</Text>
-          </TouchableOpacity>
+  const renderBookingItem = ({ item }: { item: any }) => (
+    <View style={styles.bookingCard}>
+      <View style={styles.bookingHeader}>
+        <Text style={styles.bookingId}>Booking #{item.id}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.statusText}>{item.status}</Text>
         </View>
       </View>
-    );
-  };
 
-  const filters = ['ALL', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'];
+      <View style={styles.bookingDetails}>
+        <Text style={styles.customerName}>{item.user?.name || 'Unknown Customer'}</Text>
+        <Text style={styles.serviceInfo}>
+          {item.providerService?.serviceType?.name} - ${item.providerService?.price}
+        </Text>
+        <Text style={styles.dateTime}>
+          {item.date} at {item.startTime} - {item.endTime}
+        </Text>
+        <Text style={styles.address}>{item.serviceAddress || 'No address provided'}</Text>
+        <Text style={styles.totalPrice}>Total: ${item.totalPrice}</Text>
+      </View>
 
-  if (loading && !refreshing) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loadingText}>Loading bookings...</Text>
+      {item.notes && (
+        <View style={styles.notesSection}>
+          <Text style={styles.notesLabel}>Notes:</Text>
+          <Text style={styles.notesText}>{item.notes}</Text>
         </View>
-      </SafeAreaView>
+      )}
+
+      <View style={styles.actionButtons}>
+        {item.status === 'PENDING' && (
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.confirmButton]}
+              onPress={() => handleStatusUpdate(item.id, 'CONFIRMED')}
+            >
+              <Text style={styles.buttonText}>Confirm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.declineButton]}
+              onPress={() => handleStatusUpdate(item.id, 'CANCELLED')}
+            >
+              <Text style={styles.buttonText}>Decline</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {item.status === 'CONFIRMED' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.startButton]}
+            onPress={() => handleStatusUpdate(item.id, 'IN_PROGRESS')}
+          >
+            <Text style={styles.buttonText}>Start Service</Text>
+          </TouchableOpacity>
+        )}
+
+        {item.status === 'IN_PROGRESS' && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.completeButton]}
+            onPress={() => handleStatusUpdate(item.id, 'COMPLETED')}
+          >
+            <Text style={styles.buttonText}>Complete Service</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.disputeButton]}
+          onPress={() => handleDispute(item.id)}
+        >
+          <Text style={styles.buttonText}>Dispute</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  if (!actualProviderId) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Provider ID not found. Please log in again.</Text>
+      </View>
     );
   }
 
-  if (error && !data) {
+  if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color="#ef4444" />
-          <Text style={styles.errorText}>Failed to load bookings</Text>
-          <Text style={styles.errorSubtext}>Please check your connection and try again</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading bookings...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Error loading bookings: {error.message}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={styles.title}>My Bookings</Text>
+        <Text style={styles.subtitle}>{bookings.length} booking{bookings.length !== 1 ? 's' : ''}</Text>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
+      {bookings.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>No bookings found</Text>
+          <Text style={styles.emptyStateSubtext}>
+            When customers book your services, they will appear here.
+          </Text>
+        </View>
+      ) : (
         <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={filters}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.filterTab,
-                filter === item && styles.activeFilterTab,
-              ]}
-              onPress={() => setFilter(item)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  filter === item && styles.activeFilterText,
-                ]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
+          data={bookings}
+          renderItem={renderBookingItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.bookingsList}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         />
-      </View>
-
-      <FlatList
-        data={filteredBookings}
-        renderItem={renderBooking}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="calendar" size={48} color="#9ca3af" />
-            <Text style={styles.emptyText}>
-              {filter === 'ALL' ? 'No bookings yet' : `No ${filter.toLowerCase()} bookings`}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {filter === 'ALL' 
-                ? 'Your bookings will appear here once customers start booking your services'
-                : `No bookings with ${filter.toLowerCase()} status found`
-              }
-            </Text>
-          </View>
-        }
-      />
-    </SafeAreaView>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8F9FA',
   },
   header: {
     padding: 20,
-    paddingTop: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E5E9',
   },
-  headerTitle: {
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: '#1A1A1A',
+    marginBottom: 4,
   },
-  filterContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
+  subtitle: {
+    fontSize: 16,
+    color: '#6C757D',
   },
-  filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: '#e5e7eb',
-  },
-  activeFilterTab: {
-    backgroundColor: '#2563eb',
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280',
-  },
-  activeFilterText: {
-    color: '#ffffff',
-  },
-  listContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+  bookingsList: {
+    padding: 16,
   },
   bookingCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -460,111 +421,149 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   bookingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  serviceInfo: {
-    flex: 1,
-  },
-  serviceName: {
+  bookingId: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 2,
-  },
-  customerName: {
-    fontSize: 14,
-    color: '#6b7280',
+    color: '#1A1A1A',
   },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   statusText: {
-    color: '#ffffff',
-    fontSize: 10,
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 4,
     textTransform: 'uppercase',
   },
   bookingDetails: {
     marginBottom: 12,
   },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  customerName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  serviceInfo: {
+    fontSize: 16,
+    color: '#495057',
     marginBottom: 6,
   },
-  detailText: {
-    marginLeft: 8,
-    color: '#6b7280',
+  dateTime: {
     fontSize: 14,
-    flex: 1,
+    color: '#6C757D',
+    marginBottom: 6,
+  },
+  address: {
+    fontSize: 14,
+    color: '#6C757D',
+    marginBottom: 6,
+  },
+  totalPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#28A745',
   },
   notesSection: {
-    marginTop: 8,
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
     marginBottom: 12,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
   },
   notesLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#495057',
     marginBottom: 4,
   },
   notesText: {
     fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
+    color: '#6C757D',
   },
-  actionsSection: {
+  actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 8,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 4,
-    justifyContent: 'center',
+    minWidth: 80,
+    alignItems: 'center',
   },
-  actionButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    marginLeft: 4,
+  confirmButton: {
+    backgroundColor: '#28A745',
   },
-  disputeSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+  declineButton: {
+    backgroundColor: '#DC3545',
+  },
+  startButton: {
+    backgroundColor: '#007AFF',
+  },
+  completeButton: {
+    backgroundColor: '#6F42C1',
   },
   disputeButton: {
-    backgroundColor: '#f59e0b',
-    marginHorizontal: 0,
+    backgroundColor: '#FF9500',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#6C757D',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 16,
+    color: '#ADB5BD',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    alignSelf: 'center',
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 10,
     fontSize: 16,
     color: '#6b7280',
   },
@@ -572,49 +571,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: 20,
+    backgroundColor: '#F8F9FA',
   },
   errorText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginTop: 16,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ef4444',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   errorSubtext: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#6C757D',
     textAlign: 'center',
-    marginTop: 8,
-  },
-  retryButton: {
-    marginTop: 16,
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    marginTop: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    marginTop: 8,
+    marginTop: 4,
   },
 });
 

@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -17,29 +18,109 @@ import { useAuth } from '../../context/AuthContext';
 const { width } = Dimensions.get('window');
 
 const GET_PROVIDER_STATS_QUERY = gql`
-  query ProviderStats($providerId: Int!) {
+  query ProviderBookings($providerId: Int!) {
     providerBookings(providerId: $providerId) {
       id
       status
       totalPrice
       date
+      paymentStatus
+      completedAt
       review {
         id
         rating
+        comment
+        createdAt
+      }
+      user {
+        id
+        name
+        email
+      }
+      providerService {
+        id
+        serviceType {
+          id
+          name
+        }
       }
     }
   }
 `;
 
+const GET_PROVIDER_BY_USER_QUERY = gql`
+  query GetProviderByUser($userId: Int!) {
+    providers(where: { userId: { _eq: $userId } }) {
+      id
+      userId
+      user {
+        id
+        name
+        email
+        role
+      }
+      description
+      experience
+      rating
+      totalReviews
+      isVerified
+      isActive
+    }
+  }
+`;
+
+
 const ProviderDashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
 
-  // For now, we'll use a mock providerId. In a real app, you'd get this from the provider profile
-  const providerId = 1; // This should come from the provider's profile
+  // Use user ID directly as provider ID
+  const userId = user?.id ? parseInt(String(user.id)) : null;
+  const providerId = userId;
+
+  // First, find the provider profile ID for this user
+  const { data: providerData, loading: providerLoading } = useQuery(GET_PROVIDER_BY_USER_QUERY, {
+    variables: { userId },
+    skip: !userId,
+    errorPolicy: 'all',
+  });
+
+  // Get the actual provider ID from the profile
+  const actualProviderId = (providerData as any)?.providers?.[0]?.id || userId;
+
+  // Show loading state while determining provider ID
+  if (providerLoading && !actualProviderId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loadingText}>Finding provider profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error if we can't determine provider ID
+  if (!actualProviderId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="#ef4444" />
+          <Text style={styles.errorText}>Provider Profile Not Found</Text>
+          <Text style={styles.errorSubtext}>
+            Unable to find provider profile for user ID: {userId}
+          </Text>
+          <Text style={styles.errorSubtext}>
+            Please check your account setup or contact support.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const { data, loading } = useQuery(GET_PROVIDER_STATS_QUERY, {
-    variables: { providerId },
+    variables: { providerId: actualProviderId },
+    skip: !actualProviderId,
     errorPolicy: 'all',
   });
 
@@ -351,6 +432,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8fafc',
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ef4444',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 4,
   },
 });
 

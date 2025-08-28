@@ -1,9 +1,9 @@
 export interface User {
-  id: string;
+  id: string | number;
   email: string;
   name: string;
   role: 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
-  phone?: string;
+  phone?: string | null;
 }
 
 export interface AuthError {

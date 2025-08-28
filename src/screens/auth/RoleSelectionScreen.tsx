@@ -7,12 +7,19 @@ const RoleSelectionScreen: React.FC = () => {
   const navigation = useNavigation<any>();
 
   const handleRoleSelect = (role: 'CUSTOMER' | 'PROVIDER') => {
-    navigation.navigate('Login', { role });
+    navigation.navigate('Register', { role });
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#6b7280" />
+        </TouchableOpacity>
+
         <Text style={styles.title}>Welcome to On-Demand Services</Text>
         <Text style={styles.subtitle}>How would you like to use our platform?</Text>
 
@@ -53,6 +60,12 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     justifyContent: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 1,
   },
   title: {
     fontSize: 28,

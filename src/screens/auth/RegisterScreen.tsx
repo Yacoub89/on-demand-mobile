@@ -6,21 +6,39 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  ScrollView,
   Alert,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from '@apollo/client/react';
+import { gql } from '@apollo/client';
 import { useAuth } from '../../context/AuthContext';
+
+const REGISTER_MUTATION = gql`
+  mutation Register($input: CreateUserInput!) {
+    registerUser(input: $input) {
+      token
+      user {
+        id
+        email
+        name
+        role
+        phone
+      }
+    }
+  }
+`;
 
 const RegisterScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { register } = useAuth();
+  const { login } = useAuth();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,8 +47,10 @@ const RegisterScreen: React.FC = () => {
 
   const selectedRole = route.params?.role || 'CUSTOMER';
 
+  const [registerMutation] = useMutation(REGISTER_MUTATION);
+
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !phone || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -47,12 +67,26 @@ const RegisterScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await register(email, password, name, selectedRole);
-      if (result.error) {
-        Alert.alert('Registration Failed', result.error.message);
+      const { data } = await registerMutation({
+        variables: {
+          input: {
+            email,
+            password,
+            name,
+            phone,
+            role: selectedRole,
+          },
+        },
+      });
+
+      if ((data as any)?.registerUser?.token && (data as any)?.registerUser?.user) {
+        await login((data as any).registerUser.token, (data as any).registerUser.user);
+        // Navigation will be handled automatically by AppNavigator
+      } else {
+        Alert.alert('Registration Failed', 'Invalid response from server');
       }
-    } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+    } catch (error: any) {
+      Alert.alert('Registration Failed', error.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -99,6 +133,19 @@ const RegisterScreen: React.FC = () => {
                 onChangeText={setEmail}
                 placeholder="Enter your email"
                 keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
                 autoCapitalize="none"
                 autoCorrect={false}
               />

@@ -16,7 +16,25 @@ const { width } = Dimensions.get('window');
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-    const { user } = useAuth();
+  const { user } = useAuth();
+
+  // Check if user is a customer
+  if (user?.role !== 'CUSTOMER') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="#ef4444" />
+          <Text style={styles.errorText}>Access Denied</Text>
+          <Text style={styles.errorSubtext}>
+            This screen is only available for customers. You are logged in as a {user?.role?.toLowerCase()}.
+          </Text>
+          <Text style={styles.errorSubtext}>
+            Please log in with a customer account or contact support.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -256,6 +274,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     lineHeight: 20,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8fafc',
+  },
+  errorText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ef4444',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 5,
   },
 });
 

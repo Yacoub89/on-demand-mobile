@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 
 const ProfileScreen: React.FC = () => {
-  const { user, userRole, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
     Alert.alert(
@@ -96,7 +96,7 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.userEmail}>{user?.email}</Text>
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>
-                {userRole ? userRole.charAt(0) + userRole.slice(1).toLowerCase() : 'User'}
+                {user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase() : 'User'}
               </Text>
             </View>
           </View>

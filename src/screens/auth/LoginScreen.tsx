@@ -9,13 +9,29 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from '@apollo/client/react';
+import { gql } from '@apollo/client';
 import { useAuth } from '../../context/AuthContext';
+
+const LOGIN_MUTATION = gql`
+  mutation Login($email: String!, $password: String!) {
+    loginUser(email: $email, password: $password) {
+      token
+      user {
+        id
+        email
+        name
+        role
+        phone
+      }
+    }
+  }
+`;
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
   const { login } = useAuth();
   
   const [email, setEmail] = useState('');
@@ -23,7 +39,7 @@ const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const selectedRole = route.params?.role || 'CUSTOMER';
+  const [loginMutation] = useMutation(LOGIN_MUTATION);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -33,34 +49,33 @@ const LoginScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await login(email, password);
-      if (result.error) {
-        Alert.alert('Login Failed', result.error.message);
+      const { data } = await loginMutation({
+        variables: { email, password },
+      });
+
+      if ((data as any)?.loginUser?.token && (data as any)?.loginUser?.user) {
+        await login((data as any).loginUser.token, (data as any).loginUser.user);
+        // Navigation will be handled automatically by AppNavigator
+      } else {
+        Alert.alert('Login Failed', 'Invalid response from server');
       }
-    } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   const handleRegister = () => {
-    navigation.navigate('Register', { role: selectedRole });
+    navigation.navigate('RoleSelection');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#6b7280" />
-        </TouchableOpacity>
-
         <Text style={styles.title}>Welcome Back</Text>
         <Text style={styles.subtitle}>
-          Sign in as a {selectedRole.toLowerCase()}
+          Sign in to your account
         </Text>
 
         <View style={styles.form}>
@@ -134,9 +149,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 24,
-  },
-  backButton: {
-    marginBottom: 24,
   },
   title: {
     fontSize: 28,

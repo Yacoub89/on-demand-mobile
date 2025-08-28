@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -50,6 +50,8 @@ const GET_USER_BOOKINGS_QUERY = gql`
   }
 `;
 
+
+
 const CANCEL_BOOKING_MUTATION = gql`
   mutation CancelBooking($bookingId: Int!) {
     cancelBooking(bookingId: $bookingId) {
@@ -72,16 +74,76 @@ const BookingsScreen: React.FC = () => {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Check if user is a customer
+  if (user?.role !== 'CUSTOMER') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="#ef4444" />
+          <Text style={styles.errorText}>Access Denied</Text>
+          <Text style={styles.errorSubtext}>
+            This screen is only available for customers. You are logged in as a {user?.role?.toLowerCase()}.
+          </Text>
+          <Text style={styles.errorSubtext}>
+            Please log in with a customer account or contact support.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Add debugging logs
+  console.log('🔍 BookingsScreen - User:', user);
+  console.log('🔍 BookingsScreen - User ID:', user?.id);
+  console.log('🔍 BookingsScreen - User ID type:', typeof user?.id);
+  console.log('🔍 BookingsScreen - User ID parsed:', parseInt(String(user?.id || '0')));
+  console.log('🔍 BookingsScreen - Is user defined:', !!user);
+  console.log('🔍 BookingsScreen - Should skip query:', !user);
+  console.log('🔍 BookingsScreen - User ID validation:', {
+    original: user?.id,
+    stringified: String(user?.id || '0'),
+    parsed: parseInt(String(user?.id || '0')),
+    isValid: !isNaN(parseInt(String(user?.id || '0'))),
+  });
+
+
+
+
+
   const { data, loading, error, refetch } = useQuery(GET_USER_BOOKINGS_QUERY, {
-    variables: { userId: parseInt(user?.id || '0') },
+    variables: { userId: parseInt(String(user?.id || '0')) },
     skip: !user,
     errorPolicy: 'all',
+    fetchPolicy: 'cache-and-network',
   });
+
+  // Add debugging for query execution
+  useEffect(() => {
+    console.log('🔍 BookingsScreen - Query execution state changed:', {
+      loading,
+      error: !!error,
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : [],
+      timestamp: new Date().toISOString(),
+    });
+  }, [loading, error, data]);
+
+  
+  // Additional error debugging
+  if (error) {
+    console.error('🔍 BookingsScreen - Detailed error:', {
+      message: error.message,
+      graphQLErrors: (error as any).graphQLErrors,
+      networkError: (error as any).networkError,
+      extraInfo: (error as any).extraInfo,
+    });
+  }
 
   const [cancelBooking] = useMutation(CANCEL_BOOKING_MUTATION);
   const [disputeBooking] = useMutation(DISPUTE_BOOKING_MUTATION);
 
   const bookings: Booking[] = (data as any)?.userBookings || [];
+  
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -108,7 +170,7 @@ const BookingsScreen: React.FC = () => {
             try {
               await cancelBooking({
                 variables: { bookingId: booking.id },
-                refetchQueries: [{ query: GET_USER_BOOKINGS_QUERY, variables: { userId: parseInt(user?.id || '0') } }],
+                refetchQueries: [{ query: GET_USER_BOOKINGS_QUERY, variables: { userId: parseInt(String(user?.id || '0')) } }],
               });
               Alert.alert('Success', 'Booking cancelled successfully');
             } catch (error) {
@@ -149,7 +211,7 @@ const BookingsScreen: React.FC = () => {
     try {
       await disputeBooking({
         variables: { bookingId, reason },
-        refetchQueries: [{ query: GET_USER_BOOKINGS_QUERY, variables: { userId: parseInt(user?.id || '0') } }],
+        refetchQueries: [{ query: GET_USER_BOOKINGS_QUERY, variables: { userId: parseInt(String(user?.id || '0')) } }],
       });
       Alert.alert('Success', 'Dispute submitted successfully. We will review your case.');
     } catch (error) {
@@ -519,6 +581,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    backgroundColor: '#f8fafc',
   },
   errorText: {
     fontSize: 18,

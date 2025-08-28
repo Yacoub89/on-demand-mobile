@@ -1,155 +1,67 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
-import { User, AuthError } from '../types';
 
-const LOGIN_MUTATION = gql`
-  mutation Login($email: String!, $password: String!) {
-    loginUser(email: $email, password: $password) {
-      token
-      user {
-        id
-        email
-        name
-        role
-      }
-    }
-  }
-`;
-
-const REGISTER_MUTATION = gql`
-  mutation Register($input: CreateUserInput!) {
-    registerUser(input: $input) {
-      token
-      user {
-        id
-        email
-        name
-        role
-      }
-    }
-  }
-`;
+interface User {
+  id: string | number;
+  email: string;
+  name: string;
+  role: 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
+  phone?: string | null;
+}
 
 interface AuthContextType {
-  isAuthenticated: boolean;
   user: User | null;
-  userRole: string | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  register: (email: string, password: string, name: string, role: string) => Promise<{ error: AuthError | null }>;
+  login: (token: string, userData: User) => Promise<void>;
   logout: () => Promise<void>;
-  checkAuth: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [loginMutation] = useMutation(LOGIN_MUTATION);
-  const [registerMutation] = useMutation(REGISTER_MUTATION);
-
-  const checkAuth = async (): Promise<void> => {
+  const checkAuth = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      const userData = await AsyncStorage.getItem('user');
+      const token = await AsyncStorage.getItem('authToken');
+      const userData = await AsyncStorage.getItem('userData');
       
       if (token && userData) {
-        const parsed = JSON.parse(userData);
-        setIsAuthenticated(true);
-        setUser(parsed);
-        setUserRole(parsed.role);
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        setUserRole(null);
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
       }
     } catch (error) {
       console.error('Error checking auth:', error);
-      setIsAuthenticated(false);
-      setUser(null);
-      setUserRole(null);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (token: string, userData: User) => {
     try {
-      const { data } = await loginMutation({
-        variables: { email, password },
-      });
-
-      if ((data as any)?.loginUser?.token && (data as any)?.loginUser?.user) {
-        await AsyncStorage.setItem('token', (data as any).loginUser.token);
-        await AsyncStorage.setItem('user', JSON.stringify((data as any).loginUser.user));
-
-        setIsAuthenticated(true);
-        setUser((data as any).loginUser.user);
-        setUserRole((data as any).loginUser.user.role);
-
-        return { error: null };
-      } else {
-        return { error: { message: 'Login failed' } };
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Login failed';
-      return { error: { message: errorMessage } };
+      await AsyncStorage.setItem('authToken', token);
+      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      setUser(userData);
+    } catch (error) {
+      console.error('Error during login:', error);
+      throw error;
     }
   };
 
-  const register = async (email: string, password: string, name: string, role: string) => {
+  const logout = async () => {
     try {
-      const { data } = await registerMutation({
-        variables: {
-          input: { email, password, name, role },
-        },
-      });
-
-      if ((data as any)?.registerUser?.token !== undefined && (data as any)?.registerUser?.user) {
-        if ((data as any).registerUser.token) {
-          await AsyncStorage.setItem('token', (data as any).registerUser.token);
-        }
-        await AsyncStorage.setItem('user', JSON.stringify((data as any).registerUser.user));
-
-        setIsAuthenticated(true);
-        setUser((data as any).registerUser.user);
-        setUserRole((data as any).registerUser.user.role);
-
-        return { error: null };
-      } else {
-        return { error: { message: 'Registration failed' } };
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Registration failed';
-      return { error: { message: errorMessage } };
-    }
-  };
-
-  const logout = async (): Promise<void> => {
-    try {
-      await AsyncStorage.removeItem('token');
-      await AsyncStorage.removeItem('user');
-      setIsAuthenticated(false);
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('userData');
       setUser(null);
-      setUserRole(null);
     } catch (error) {
       console.error('Error during logout:', error);
     }
@@ -159,15 +71,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth();
   }, []);
 
-  const value: AuthContextType = {
-    isAuthenticated,
+  const value = {
     user,
-    userRole,
-    loading,
     login,
-    register,
     logout,
-    checkAuth,
+    isLoading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

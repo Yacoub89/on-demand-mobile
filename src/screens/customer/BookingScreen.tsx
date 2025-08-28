@@ -109,7 +109,7 @@ const BookingScreen: React.FC = () => {
       
       const { data } = await createBooking({
         variables: {
-          userId: parseInt(user.id),
+          userId: parseInt(String(user.id)),
           providerServiceId: service.id,
           date: selectedDate,
           startTime: selectedTime,
