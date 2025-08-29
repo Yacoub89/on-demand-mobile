@@ -25,26 +25,47 @@ const GET_USER_BOOKINGS_QUERY = gql`
       endTime
       status
       totalPrice
+      notes
       paymentStatus
       completedAt
+      paymentReleaseAt
+      paymentReleasedAt
+      providerPayout
+      platformFee
       serviceAddress
-      notes
+      completionNotes
+      completionPhotos
+      customerNotifiedAt
+      cancellationRequestedAt
+      cancellationRequestedBy
+      cancellationReason
+      review {
+        id
+        rating
+        comment
+        createdAt
+      }
       providerService {
         id
+        price
+        duration
+        description
         serviceType {
+          id
           name
+          category {
+            id
+            name
+          }
         }
         provider {
           user {
             id
             name
+            email
+            phone
           }
         }
-      }
-      review {
-        id
-        rating
-        comment
       }
     }
   }
@@ -92,19 +113,7 @@ const BookingsScreen: React.FC = () => {
     );
   }
 
-  // Add debugging logs
-  console.log('🔍 BookingsScreen - User:', user);
-  console.log('🔍 BookingsScreen - User ID:', user?.id);
-  console.log('🔍 BookingsScreen - User ID type:', typeof user?.id);
-  console.log('🔍 BookingsScreen - User ID parsed:', parseInt(String(user?.id || '0')));
-  console.log('🔍 BookingsScreen - Is user defined:', !!user);
-  console.log('🔍 BookingsScreen - Should skip query:', !user);
-  console.log('🔍 BookingsScreen - User ID validation:', {
-    original: user?.id,
-    stringified: String(user?.id || '0'),
-    parsed: parseInt(String(user?.id || '0')),
-    isValid: !isNaN(parseInt(String(user?.id || '0'))),
-  });
+
 
 
 

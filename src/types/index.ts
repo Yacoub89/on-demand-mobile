@@ -4,6 +4,10 @@ export interface User {
   name: string;
   role: 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
   phone?: string | null;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  authUserId?: string;
 }
 
 export interface AuthError {
@@ -69,7 +73,20 @@ export interface Booking {
   completedAt?: string;
   serviceAddress?: string;
   createdAt: string;
+  updatedAt?: string;
   review?: Review;
+  // Additional fields from GraphQL queries
+  paymentReleaseAt?: string;
+  paymentReleasedAt?: string;
+  providerPayout?: number;
+  platformFee?: number;
+  completionNotes?: string;
+  completionPhotos?: string[];
+  customerNotifiedAt?: string;
+  cancellationRequestedAt?: string;
+  cancellationRequestedBy?: string;
+  cancellationReason?: string;
+  paymentIntentId?: string;
 }
 
 export interface Review {

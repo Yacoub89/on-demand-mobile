@@ -21,11 +21,25 @@ const GET_PROVIDER_STATS_QUERY = gql`
   query ProviderBookings($providerId: Int!) {
     providerBookings(providerId: $providerId) {
       id
+      date
+      startTime
+      endTime
       status
       totalPrice
-      date
+      notes
       paymentStatus
       completedAt
+      paymentReleaseAt
+      paymentReleasedAt
+      providerPayout
+      platformFee
+      serviceAddress
+      completionNotes
+      completionPhotos
+      customerNotifiedAt
+      cancellationRequestedAt
+      cancellationRequestedBy
+      cancellationReason
       review {
         id
         rating
@@ -36,12 +50,20 @@ const GET_PROVIDER_STATS_QUERY = gql`
         id
         name
         email
+        phone
       }
       providerService {
         id
+        price
+        duration
+        description
         serviceType {
           id
           name
+          category {
+            id
+            name
+          }
         }
       }
     }

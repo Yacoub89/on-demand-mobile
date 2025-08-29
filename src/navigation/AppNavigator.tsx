@@ -8,8 +8,6 @@ import { useAuth } from '../context/AuthContext';
 
 // Auth screens
 import LoginScreen from '../screens/auth/LoginScreen';
-import RegisterScreen from '../screens/auth/RegisterScreen';
-import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
 
 // Customer screens
 import HomeScreen from '../screens/customer/HomeScreen';
@@ -18,8 +16,8 @@ import ProfileScreen from '../screens/ProfileScreen';
 
 // Provider screens
 import ProviderDashboardScreen from '../screens/provider/ProviderDashboardScreen';
-import ProviderBookingsScreen from '../screens/provider/ProviderBookingsScreen';
 import LoadingScreen from '../screens/LoadingScreen';
+import ProviderBookingsScreen from '../screens/provider/ProviderBookingsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -89,8 +87,6 @@ const CustomerTabs = () => {
 const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-    <Stack.Screen name="Register" component={RegisterScreen} />
   </Stack.Navigator>
 );
 

@@ -9,7 +9,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
@@ -31,7 +30,6 @@ const LOGIN_MUTATION = gql`
 `;
 
 const LoginScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
   const { login } = useAuth();
   
   const [email, setEmail] = useState('');
@@ -64,10 +62,6 @@ const LoginScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleRegister = () => {
-    navigation.navigate('RoleSelection');
   };
 
   return (
@@ -128,13 +122,6 @@ const LoginScreen: React.FC = () => {
               <Text style={styles.loginButtonText}>Sign In</Text>
             )}
           </TouchableOpacity>
-
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={handleRegister}>
-              <Text style={styles.registerLink}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -205,18 +192,6 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  registerText: {
-    color: '#6b7280',
-  },
-  registerLink: {
-    color: '#2563eb',
     fontWeight: '600',
   },
 });
