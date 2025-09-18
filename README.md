@@ -5,7 +5,6 @@ A React Native mobile application for the on-demand service platform, built with
 ## Features
 
 ### Customer Features
-- **Service Discovery**: Browse services by category
 - **Service Booking**: Book services with date/time selection
 - **Booking Management**: View and track booking status
 - **User Profile**: Manage account settings
@@ -17,7 +16,7 @@ A React Native mobile application for the on-demand service platform, built with
 - **Customer Communication**: View customer details and notes
 
 ### Shared Features
-- **Authentication**: Login and registration for both customers and providers
+- **Authentication**: Login-only authentication for both customers and providers
 - **Role-based Navigation**: Different interfaces for customers and providers
 - **Real-time Updates**: Live booking status updates
 - **Responsive Design**: Optimized for mobile devices
@@ -52,16 +51,11 @@ A React Native mobile application for the on-demand service platform, built with
    npm install
    ```
 
-3. **Configure API endpoints**
+3. **Configure environment variables**
    
-   Update `src/config/api.ts` with your actual Supabase project URLs:
-   ```typescript
-   export const API_CONFIG = {
-     API_URL: 'https://your-project-ref.supabase.co/functions/v1/api',
-     SUPABASE_URL: 'https://your-project-ref.supabase.co',
-     SUPABASE_ANON_KEY: 'your-supabase-anon-key',
-   };
-   ```
+   Update the environment files with your API configuration:
+   - `env.development` - Development environment settings
+   - `env.production` - Production environment settings
 
 4. **Start the development server**
    ```bash
@@ -72,17 +66,23 @@ A React Native mobile application for the on-demand service platform, built with
 
 ```
 src/
-├── components/          # Reusable UI components (future)
 ├── config/             # Configuration files
-│   └── api.ts          # API endpoints configuration
+│   └── environment.ts  # Environment configuration
 ├── context/            # React Context providers
 │   └── AuthContext.tsx # Authentication context
 ├── navigation/         # Navigation configuration
 │   └── AppNavigator.tsx # Main navigation setup
 ├── screens/            # Screen components
 │   ├── auth/           # Authentication screens
+│   │   └── LoginScreen.tsx # Login screen
 │   ├── customer/       # Customer-specific screens
+│   │   ├── BookingScreen.tsx # Service booking
+│   │   ├── BookingsScreen.tsx # Booking management
+│   │   └── HomeScreen.tsx # Customer dashboard
 │   ├── provider/       # Provider-specific screens
+│   │   ├── ProviderBookingsScreen.tsx # Provider booking management
+│   │   └── ProviderDashboardScreen.tsx # Provider dashboard
+│   ├── LoadingScreen.tsx # Loading state
 │   └── ProfileScreen.tsx # Shared profile screen
 ├── services/           # External services
 │   └── apollo.ts       # Apollo Client configuration
@@ -99,17 +99,12 @@ src/
 
 ## API Integration
 
-The app connects to the existing Supabase Edge Function API. Make sure your backend is running and accessible:
+The app connects to the existing GraphQL API. Make sure your backend is running and accessible:
 
 ### Required GraphQL Operations
 
 **Authentication**
 - `loginUser` - User login
-- `registerUser` - User registration
-
-**Services**
-- `services` - Get available services
-- `categories` - Get service categories
 
 **Bookings**
 - `createBooking` - Create new booking
@@ -120,33 +115,24 @@ The app connects to the existing Supabase Edge Function API. Make sure your back
 ## Environment Setup
 
 ### Development
-For local development, update `DEV_API_CONFIG` in `src/config/api.ts`:
-```typescript
-export const DEV_API_CONFIG = {
-  API_URL: 'http://localhost:54321/functions/v1/api',
-  SUPABASE_URL: 'http://localhost:54321',
-  SUPABASE_ANON_KEY: 'your-local-supabase-anon-key',
-};
-```
+For local development, update `env.development` with your development API configuration.
 
 ### Production
-Update `API_CONFIG` with your production Supabase URLs.
+Update `env.production` with your production API configuration.
 
 ## Key Features Implementation
 
 ### Authentication Flow
-1. Role selection (Customer/Provider)
-2. Login/Registration forms
-3. JWT token storage
-4. Automatic authentication check
+1. Login form for existing users
+2. JWT token storage
+3. Automatic authentication check
+4. Role-based navigation (Customer/Provider)
 
 ### Customer Booking Flow
-1. Browse service categories
-2. View available services
-3. Select service and provider
-4. Choose date and time
-5. Enter service address
-6. Confirm booking
+1. Select service and provider
+2. Choose date and time
+3. Enter service address
+4. Confirm booking
 
 ### Provider Booking Management
 1. View all bookings with filters
@@ -158,14 +144,11 @@ Update `API_CONFIG` with your production Supabase URLs.
 
 ```
 Auth Stack (Unauthenticated)
-├── RoleSelection
-├── Login
-└── Register
+└── Login
 
 Main Stack (Authenticated)
 ├── Customer Tabs
 │   ├── Home
-│   ├── Services
 │   ├── Bookings
 │   └── Profile
 ├── Provider Tabs
@@ -199,6 +182,7 @@ The app uses a consistent design system:
 - [ ] Availability calendar
 - [ ] Photo uploads
 - [ ] Location services and maps
+- [ ] User registration flow (if needed)
 
 ## Testing
 
@@ -220,9 +204,7 @@ The app uses a consistent design system:
 
 ### Test Accounts
 
-Create test accounts through the registration flow:
-- Customer account for testing booking flow
-- Provider account for testing booking management
+**Note**: This app currently only supports login for existing users. Test accounts must be created through other means (admin panel, web interface, or direct database insertion).
 
 ## Troubleshooting
 
@@ -243,7 +225,7 @@ Create test accounts through the registration flow:
    - Verify Android SDK installation
 
 4. **API connection issues**
-   - Verify API URLs in `src/config/api.ts`
+   - Verify API configuration in environment files
    - Check backend server status
    - Verify network connectivity
 
